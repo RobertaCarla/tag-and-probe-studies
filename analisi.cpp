@@ -31,7 +31,7 @@ using namespace std;
 
 
 void analisi(){
-    TFile fmass("AnalysisResults.root");                      //Opens or creates a local ROOT file. ("nome del file")
+    TFile fmass("AnalysisResults_LHC23k2f_20240327.root");                      //Opens or creates a local ROOT file. ("nome del file")
     TFile plotTesi("plotTesi.root", "recreate");
     TH1F *MassV0=(TH1F*)fmass.Get("efficiency-q-a/massV0");   //lo prende dalla cartella efficiency-q-a e il nome del file è massV0
     TH1F *MassV0_exp= new TH1F(*MassV0);                      //copia usata per il fit con solo esponenziale
@@ -46,8 +46,11 @@ void analisi(){
 
     //ora che sono risalita ai dati (che ho immagazzinati ma che non vedo) dall'immagine, creo un canvas, un ambiente in cui disegnare l'istogramma e poi lo disegno per verificare che sia andato tutto bene
     TCanvas *CMassV0 = new TCanvas("CMassV0 ","MassV0",200,50,600,400); 
-     gStyle->SetOptStat(0);    //mi toglie il riquadro con mean, dev std, etc. Nel file .root si vede ancora ma una volta salvato in pdf o altro non si vede più
-     
+    gStyle->SetOptStat(0);    //mi toglie il riquadro con mean, dev std, etc. Nel file .root si vede ancora ma una volta salvato in pdf o altro non si vede più
+
+    for(int i=1; i<=MassV0->GetNbinsX(); i++){
+        MassV0->SetBinError(i, MassV0->GetBinError(i));
+    }
 
     //ora devo fittare con una gaussiana più un esponenziale decrescente
     TF1 *gauss_exp = new TF1("gauss_exp","gausn(0)+expo(3)",0.,1.);  //gausn: gaussiana normalizzata
@@ -135,6 +138,11 @@ void analisi(){
 
 cout<<"\n----------------------------- Fit con solo esponenziale sulle side bands --------------------------------------------\n"<<endl;
 MassV0_exp->SetName("fit_exp_MassV0");
+
+for(int i=1; i<=MassV0->GetNbinsX(); i++){
+    MassV0_exp->SetBinError(i, MassV0_exp->GetBinError(i));
+}
+
 TCanvas *CMassV0_exp = new TCanvas("CMassV0_exp ","MassV0_exp",200,50,600,400);
 
     float e_inferiore= mu - kSBandsWindow * sigma;
@@ -178,6 +186,7 @@ TCanvas *CMassV0_exp = new TCanvas("CMassV0_exp ","MassV0_exp",200,50,600,400);
 
  for(int i=exp_bin_min; i<=exp_bin_max; i++){
         MassV0_exp->SetBinContent(i, 0);   //SetBinContent(nbin, content)
+        MassV0_exp->SetBinError(i, 0);
     }
 
 
@@ -190,9 +199,11 @@ TCanvas *CMassV0_exp = new TCanvas("CMassV0_exp ","MassV0_exp",200,50,600,400);
    f1->SetParLimits(1,-10,0);     // b deve essere negativo -> [-10,0]
    CMassV0_exp->cd(0);
    TFitResultPtr r = MassV0_exp->Fit(f1, "RMLS"); 
+   gStyle->SetOptFit(1111);
    MassV0_exp->Draw();
 
   cout<<"Probability: "<<f1->GetProb()<<endl;
+  cout<<"Covariance matrix: "<<r->CovMatrixStatus()<<endl;
 
 
     plotTesi.cd();    //per come ho aperto il file, questo non è un puntatore quindi metto il punto
@@ -287,8 +298,11 @@ cout<<"\n-----------------------------------------------------------------------
 
     MassV0_plot->SetName("MassV0_plot");
 
-    TCanvas *CMassV0plot = new TCanvas("CMassV0plot ","MassV0_plot",200,50,600,400); 
-     gStyle->SetOptStat(0);
+    for(int i=1; i<=MassV0->GetNbinsX(); i++){
+        MassV0_plot->SetBinError(i, MassV0_plot->GetBinError(i));
+    }
+
+    TCanvas *CMassV0plot = new TCanvas("CMassV0plot ","MassV0_plot",200,50,600,400);
 
 
 
@@ -318,11 +332,11 @@ float yf= 0.9*(MassV0_plot->GetBinContent(MaxBin));
    TLatex t;
    t.SetNDC();
    t.SetTextSize(0.031);
-   t.DrawLatex(0.59, 0.83, Form("#mu = (%f #pm %f) GeV/#it{c}^{2}", gauss_exp->GetParameter(1), gauss_exp->GetParError(1)));
-   t.DrawLatex(0.59, 0.78, Form("#sigma = (%f #pm %f) GeV/#it{c}^{2}", gauss_exp->GetParameter(2), gauss_exp->GetParError(2)));
-   t.DrawLatex(0.59, 0.73, Form("S = %f #pm %f", S, sS));
-   t.DrawLatex(0.59, 0.68, Form("B = %f #pm %f", B, sB));
-   t.DrawLatex(0.59, 0.63, Form("#frac{S}{S+B} =  %f #pm %f", purezza, s_purezza));             //per scrivere il prodotto vettoriale:   #times 10^{-2}
+   t.DrawLatex(0.67, 0.83, Form("#scale[0.885]{#mu = (%f #pm %f) GeV/#it{c}^{2}}", gauss_exp->GetParameter(1), gauss_exp->GetParError(1)));
+   t.DrawLatex(0.67, 0.78, Form("#scale[0.9]{#sigma = (%.5f #pm %.5f) GeV/#it{c}^{2}}", gauss_exp->GetParameter(2), gauss_exp->GetParError(2)));
+   t.DrawLatex(0.67, 0.73, Form("S = (%.0f #pm %.0f) #times 10^{3}", S/pow(10., 3), sS/pow(10., 3)));
+   t.DrawLatex(0.67, 0.68, Form("B = (%.0f #pm %.0f) #times 10^{3}", B/pow(10., 3), sB/pow(10., 3)));
+   t.DrawLatex(0.67, 0.63, Form("#frac{S}{S+B} =  %.4f #pm %.4f", purezza, s_purezza));             //per scrivere il prodotto vettoriale:   #times 10^{-2}
    //t.DrawLatex(0.2, 0.35, Form("#frac{S}{#sqrt{S+B}} = %f #pm %f", significatività, s_significatività));    posso anche non mettere la significatività
     
  
